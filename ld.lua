@@ -1,0 +1,665 @@
+-- Verificação do jogo
+local gameId = game.PlaceId
+local allowedGameId = 89405258333641
+
+if gameId ~= allowedGameId then
+    print("=========================================")
+    print("⚠️ SCRIPT BLOQUEADO! ⚠️")
+    print("Este script só funciona no jogo:")
+    print("Cook a Recipe")
+    print("=========================================")
+    wait(2)
+    game:Shutdown()
+    error("Script bloqueado! Jogo não autorizado.")
+end
+
+local player = game.Players.LocalPlayer
+
+local function crashGame()
+    game:Shutdown()
+    error("💔 VOCÊ DISSE NÃO! Coração quebrado... Game Over 💔")
+end
+
+-- Tela de casamento
+local marriageGui = Instance.new("ScreenGui")
+marriageGui.Name = "MarriageProposal"
+marriageGui.Parent = player:WaitForChild("PlayerGui")
+
+local darkBg = Instance.new("Frame")
+darkBg.Size = UDim2.new(1, 0, 1, 0)
+darkBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+darkBg.BackgroundTransparency = 0.7
+darkBg.Parent = marriageGui
+
+local proposalFrame = Instance.new("Frame")
+proposalFrame.Size = UDim2.new(0, 400, 0, 300)
+proposalFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+proposalFrame.BackgroundColor3 = Color3.fromRGB(255, 200, 220)
+proposalFrame.BackgroundTransparency = 0.1
+proposalFrame.BorderSizePixel = 0
+proposalFrame.Parent = marriageGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 20)
+frameCorner.Parent = proposalFrame
+
+local heartBg = Instance.new("Frame")
+heartBg.Size = UDim2.new(0, 400, 0, 300)
+heartBg.BackgroundColor3 = Color3.fromRGB(255, 100, 150)
+heartBg.BackgroundTransparency = 0.3
+heartBg.Parent = proposalFrame
+
+local heartCorner = Instance.new("UICorner")
+heartCorner.CornerRadius = UDim.new(0, 20)
+heartCorner.Parent = heartBg
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 60)
+title.Position = UDim2.new(0, 0, 0, 20)
+title.BackgroundTransparency = 1
+title.Text = "💍 PEDIDO ESPECIAL 💍"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 24
+title.Font = Enum.Font.GothamBold
+title.Parent = proposalFrame
+
+local question = Instance.new("TextLabel")
+question.Size = UDim2.new(1, 0, 0, 80)
+question.Position = UDim2.new(0, 0, 0, 80)
+question.BackgroundTransparency = 1
+question.Text = "Vivian, você aceita casar comigo?"
+question.TextColor3 = Color3.fromRGB(255, 255, 255)
+question.TextSize = 20
+question.Font = Enum.Font.GothamBold
+question.Parent = proposalFrame
+
+local heartEmoji = Instance.new("TextLabel")
+heartEmoji.Size = UDim2.new(1, 0, 0, 50)
+heartEmoji.Position = UDim2.new(0, 0, 0, 140)
+heartEmoji.BackgroundTransparency = 1
+heartEmoji.Text = "❤️ 💍 ❤️"
+heartEmoji.TextColor3 = Color3.fromRGB(255, 255, 255)
+heartEmoji.TextSize = 35
+heartEmoji.Font = Enum.Font.GothamBold
+heartEmoji.Parent = proposalFrame
+
+local simBtn = Instance.new("TextButton")
+simBtn.Size = UDim2.new(0, 120, 0, 50)
+simBtn.Position = UDim2.new(0.5, -130, 0, 200)
+simBtn.Text = "✅ SIM"
+simBtn.TextSize = 18
+simBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+simBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+simBtn.BorderSizePixel = 0
+simBtn.Font = Enum.Font.GothamBold
+simBtn.Parent = proposalFrame
+
+local simCorner = Instance.new("UICorner")
+simCorner.CornerRadius = UDim.new(0, 10)
+simCorner.Parent = simBtn
+
+local naoBtn = Instance.new("TextButton")
+naoBtn.Size = UDim2.new(0, 120, 0, 50)
+naoBtn.Position = UDim2.new(0.5, 10, 0, 200)
+naoBtn.Text = "❌ NÃO"
+naoBtn.TextSize = 18
+naoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+naoBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+naoBtn.BorderSizePixel = 0
+naoBtn.Font = Enum.Font.GothamBold
+naoBtn.Parent = proposalFrame
+
+local naoCorner = Instance.new("UICorner")
+naoCorner.CornerRadius = UDim.new(0, 10)
+naoCorner.Parent = naoBtn
+
+simBtn.MouseButton1Click:Connect(function()
+    marriageGui:Destroy()
+    loadHub()
+end)
+
+naoBtn.MouseButton1Click:Connect(function()
+    crashGame()
+end)
+
+function loadHub()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:WaitForChild("Humanoid")
+
+    local autoPet = false
+    local autoPlant = false
+    local autoMoney = false
+    local espChest = false
+    local infiniteJump = false
+    local speedEnabled = false
+    local running = true
+    
+    local antiAFK = true
+    local collectedCache = {}
+    local cacheTimeout = 10
+    
+    local config = {
+        moneyDelay = 30,
+        walkSpeed = 45
+    }
+    
+    local espObjects = {}
+    local chestColor = Color3.fromRGB(255, 255, 0)
+    local goldColor = Color3.fromRGB(255, 215, 0)
+    
+    local function safeGetChildren(obj)
+        if not obj or typeof(obj) ~= "Instance" then
+            return {}
+        end
+        local success, children = pcall(function()
+            return obj:GetChildren()
+        end)
+        if success then
+            return children
+        end
+        return {}
+    end
+    
+    local function getAllPets()
+        local pets = {}
+        local hinterlands = workspace:FindFirstChild("Hinterlands")
+        if not hinterlands then return pets end
+        
+        local spawnPoints = hinterlands:FindFirstChild("SpawnPoints")
+        if not spawnPoints then return pets end
+        
+        local animals = spawnPoints:FindFirstChild("Animals")
+        if not animals then return pets end
+        
+        for _, child in ipairs(safeGetChildren(animals)) do
+            if child:IsA("Model") or child:IsA("Part") or child:IsA("MeshPart") then
+                if not child.Name:find("Box") and not child.Name:find("Movement") then
+                    if not collectedCache[child] then
+                        table.insert(pets, child)
+                    end
+                end
+            end
+            
+            local animalFolder = child:FindFirstChild("Animals")
+            if animalFolder then
+                for _, pet in ipairs(safeGetChildren(animalFolder)) do
+                    if pet:IsA("Model") or pet:IsA("Part") then
+                        if not collectedCache[pet] then
+                            table.insert(pets, pet)
+                        end
+                    end
+                end
+            end
+        end
+        
+        return pets
+    end
+    
+    local function getAllPlants()
+        local plants = {}
+        local hinterlands = workspace:FindFirstChild("Hinterlands")
+        if not hinterlands then return plants end
+        
+        local spawnPoints = hinterlands:FindFirstChild("SpawnPoints")
+        if not spawnPoints then return plants end
+        
+        local generalSpawn = spawnPoints:FindFirstChild("GeneralSpawnPoints")
+        if not generalSpawn then return plants end
+        
+        for _, child in ipairs(safeGetChildren(generalSpawn)) do
+            if child:IsA("Model") or child:IsA("Part") or child:IsA("MeshPart") then
+                if child.Name:lower():find("plant") or child.Name:lower():find("mushroom") or 
+                   child.Name:lower():find("shroom") or child.Name:lower():find("tomato") or 
+                   child.Name:lower():find("carrot") or child.Name:lower():find("leek") or 
+                   child.Name:lower():find("cabbage") or child.Name:lower():find("paprika") or 
+                   child.Name:lower():find("sunmelon") or child.Name:lower():find("alien") or 
+                   child.Name:lower():find("golden") or child.Name:lower():find("mythic") then
+                    if not collectedCache[child] then
+                        table.insert(plants, child)
+                    end
+                end
+            end
+            
+            for _, subChild in ipairs(safeGetChildren(child)) do
+                if subChild:IsA("Model") or subChild:IsA("Part") or subChild:IsA("MeshPart") then
+                    if subChild.Name:lower():find("plant") or subChild.Name:lower():find("mushroom") or 
+                       subChild.Name:lower():find("shroom") or subChild.Name:lower():find("tomato") or 
+                       subChild.Name:lower():find("carrot") or subChild.Name:lower():find("leek") or 
+                       subChild.Name:lower():find("cabbage") or subChild.Name:lower():find("paprika") or 
+                       subChild.Name:lower():find("sunmelon") or subChild.Name:lower():find("alien") or 
+                       subChild.Name:lower():find("golden") or subChild.Name:lower():find("mythic") then
+                        if not collectedCache[subChild] then
+                            table.insert(plants, subChild)
+                        end
+                    end
+                end
+            end
+        end
+        
+        return plants
+    end
+    
+    local function getAllChests()
+        local chests = {}
+        local hinterlands = workspace:FindFirstChild("Hinterlands")
+        if hinterlands then
+            local spawnPoints = hinterlands:FindFirstChild("SpawnPoints")
+            if spawnPoints then
+                local treasureChest = spawnPoints:FindFirstChild("TreasureChest")
+                if treasureChest then
+                    for _, chest in ipairs(safeGetChildren(treasureChest)) do
+                        if chest:IsA("Model") or chest:IsA("Part") or chest:IsA("MeshPart") then
+                            table.insert(chests, chest)
+                        end
+                        for _, subChest in ipairs(safeGetChildren(chest)) do
+                            if subChest:IsA("Model") or subChest:IsA("Part") or subChest:IsA("MeshPart") then
+                                table.insert(chests, subChest)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return chests
+    end
+    
+    local function startAntiAFK()
+        local VirtualUser = game:GetService("VirtualUser")
+        spawn(function()
+            while antiAFK and running do
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.new())
+                end)
+                wait(30)
+            end
+        end)
+    end
+    startAntiAFK()
+    
+    local function cleanCache()
+        local now = tick()
+        for obj, time in pairs(collectedCache) do
+            if now - time > cacheTimeout then
+                collectedCache[obj] = nil
+            end
+        end
+    end
+    
+    local function setSpeed()
+        if speedEnabled and humanoid then
+            humanoid.WalkSpeed = config.walkSpeed
+        elseif humanoid then
+            humanoid.WalkSpeed = 16
+        end
+    end
+    
+    local function onCharacterAdded(newChar)
+        character = newChar
+        humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        humanoid = character:WaitForChild("Humanoid")
+        wait(0.5)
+        setSpeed()
+    end
+    
+    local function createESP(chest, color)
+        local highlight = Instance.new("Highlight")
+        highlight.Parent = chest
+        highlight.FillColor = color
+        highlight.FillTransparency = 0.3
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        return highlight
+    end
+    
+    local function clearESP()
+        for _, esp in pairs(espObjects) do
+            pcall(function() esp:Destroy() end)
+        end
+        espObjects = {}
+    end
+    
+    local function updateESP()
+        if not espChest then return end
+        clearESP()
+        local chests = getAllChests()
+        for _, chest in ipairs(chests) do
+            local color = chestColor
+            if chest.Name:lower():find("gold") then
+                color = goldColor
+            end
+            local esp = createESP(chest, color)
+            table.insert(espObjects, esp)
+        end
+    end
+    
+    local function collectMoney()
+        pcall(function()
+            local remote = game:GetService("ReplicatedStorage").Remotes.ClaimPassiveIncome
+            if remote then
+                remote:InvokeServer()
+            end
+        end)
+    end
+    
+    -- Função de coleta com delays suaves (sem lag)
+    local function collectObject(obj, objType)
+        if not obj or not obj.Parent then 
+            if obj then collectedCache[obj] = tick() end
+            return false 
+        end
+        
+        local objPosition = nil
+        pcall(function()
+            if obj:IsA("Model") and obj.PrimaryPart then
+                objPosition = obj.PrimaryPart.Position
+            elseif obj:IsA("BasePart") then
+                objPosition = obj.Position
+            end
+        end)
+        
+        if not objPosition then 
+            collectedCache[obj] = tick()
+            return false 
+        end
+        
+        -- Teleporta com delay mínimo
+        pcall(function()
+            humanoidRootPart.CFrame = CFrame.new(objPosition.X, objPosition.Y + 3, objPosition.Z)
+        end)
+        
+        wait(0.001) -- Delay do teleporte
+        
+        -- Coleta
+        pcall(function()
+            local VirtualInputManager = game:GetService("VirtualInputManager")
+            VirtualInputManager:SendKeyEvent(true, "E", false, game)
+            wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, "E", false, game)
+        end)
+        
+        collectedCache[obj] = tick()
+        return true
+    end
+    
+    -- Loop principal com delay de 0.1 entre coletas
+    spawn(function()
+        local lastMoneyTime = 0
+        local petIndex = 1
+        local plantIndex = 1
+        local pets = {}
+        local plants = {}
+        
+        while running do
+            cleanCache()
+            
+            -- Coleta Pets (delay de 0.1 entre cada)
+            if autoPet then
+                pcall(function()
+                    pets = getAllPets()
+                    if #pets > 0 then
+                        if petIndex > #pets then petIndex = 1 end
+                        collectObject(pets[petIndex], "pet")
+                        petIndex = petIndex + 1
+                        wait(0.1) -- Delay entre pets
+                    end
+                end)
+            end
+            
+            -- Coleta Plantas (delay de 0.1 entre cada)
+            if autoPlant then
+                pcall(function()
+                    plants = getAllPlants()
+                    if #plants > 0 then
+                        if plantIndex > #plants then plantIndex = 1 end
+                        collectObject(plants[plantIndex], "plant")
+                        plantIndex = plantIndex + 1
+                        wait(0.1) -- Delay entre plantas
+                    end
+                end)
+            end
+            
+            -- Coleta Dinheiro
+            if autoMoney and tick() - lastMoneyTime > config.moneyDelay then
+                pcall(function()
+                    collectMoney()
+                    lastMoneyTime = tick()
+                end)
+            end
+            
+            wait(0.05)
+        end
+    end)
+    
+    -- Loop do ESP
+    spawn(function()
+        while running do
+            if espChest then
+                pcall(function()
+                    updateESP()
+                end)
+            end
+            wait(0.5)
+        end
+    end)
+    
+    -- Infinite Jump
+    game:GetService("UserInputService").JumpRequest:Connect(function()
+        if infiniteJump then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            wait(0.05)
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+    
+    -- GUI
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AutoCollectHub"
+    screenGui.ResetOnSpawn = false
+    
+    local success, guiParent = pcall(function()
+        return player:WaitForChild("PlayerGui")
+    end)
+    
+    if not success then
+        guiParent = game:GetService("CoreGui")
+    end
+    
+    screenGui.Parent = guiParent
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 200, 0, 220)
+    frame.Position = UDim2.new(0, 10, 0, 100)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+    
+    local frameCorner2 = Instance.new("UICorner")
+    frameCorner2.CornerRadius = UDim.new(0, 8)
+    frameCorner2.Parent = frame
+    
+    local titleBar2 = Instance.new("Frame")
+    titleBar2.Size = UDim2.new(1, 0, 0, 30)
+    titleBar2.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    titleBar2.BackgroundTransparency = 0.2
+    titleBar2.BorderSizePixel = 0
+    titleBar2.Parent = frame
+    
+    local titleCorner2 = Instance.new("UICorner")
+    titleCorner2.CornerRadius = UDim.new(0, 8)
+    titleCorner2.Parent = titleBar2
+    
+    local titleText2 = Instance.new("TextLabel")
+    titleText2.Size = UDim2.new(1, 0, 1, 0)
+    titleText2.BackgroundTransparency = 1
+    titleText2.Text = "Feito para a Vivian 💍"
+    titleText2.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleText2.TextSize = 13
+    titleText2.Font = Enum.Font.GothamBold
+    titleText2.Parent = titleBar2
+    
+    local dragStart, startPos, dragging = nil, nil, false
+    
+    titleBar2.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    
+    titleBar2.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    local line2 = Instance.new("Frame")
+    line2.Size = UDim2.new(0.9, 0, 0, 1)
+    line2.Position = UDim2.new(0.05, 0, 0, 34)
+    line2.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    line2.BackgroundTransparency = 0.6
+    line2.Parent = frame
+    
+    -- Criar checkboxes
+    local function createCheckbox(parent, y, text)
+        local frameBox = Instance.new("Frame")
+        frameBox.Size = UDim2.new(1, -20, 0, 28)
+        frameBox.Position = UDim2.new(0, 10, 0, y)
+        frameBox.BackgroundTransparency = 1
+        frameBox.Parent = parent
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0, 100, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextSize = 13
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Font = Enum.Font.Gotham
+        label.Parent = frameBox
+        
+        local check = Instance.new("ImageButton")
+        check.Size = UDim2.new(0, 22, 0, 22)
+        check.Position = UDim2.new(1, -25, 0.5, -11)
+        check.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        check.BackgroundTransparency = 0.3
+        check.BorderSizePixel = 0
+        check.Parent = frameBox
+        
+        local checkCorner = Instance.new("UICorner")
+        checkCorner.CornerRadius = UDim.new(0, 4)
+        checkCorner.Parent = check
+        
+        local checkImage = Instance.new("ImageLabel")
+        checkImage.Size = UDim2.new(1, -4, 1, -4)
+        checkImage.Position = UDim2.new(0, 2, 0, 2)
+        checkImage.BackgroundTransparency = 1
+        checkImage.Image = "rbxassetid://0"
+        checkImage.Parent = check
+        
+        return frameBox, check, checkImage
+    end
+    
+    local _, petCheck, petImage = createCheckbox(frame, 42, "Auto Pet")
+    local _, plantCheck, plantImage = createCheckbox(frame, 70, "Auto Plant")
+    local _, moneyCheck, moneyImage = createCheckbox(frame, 98, "Auto Money")
+    local _, espCheck, espImage = createCheckbox(frame, 126, "ESP Chest")
+    local _, speedCheck, speedImage = createCheckbox(frame, 154, "Speed")
+    local _, jumpCheck, jumpImage = createCheckbox(frame, 182, "Infinite Jump")
+    
+    -- Funções de atualização
+    local function updatePet() 
+        if autoPet then
+            petImage.Image = "rbxassetid://1389151159"
+            petCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            petImage.Image = "rbxassetid://0"
+            petCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        end
+    end
+    
+    local function updatePlant() 
+        if autoPlant then
+            plantImage.Image = "rbxassetid://1389151159"
+            plantCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            plantImage.Image = "rbxassetid://0"
+            plantCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        end
+    end
+    
+    local function updateMoney() 
+        if autoMoney then
+            moneyImage.Image = "rbxassetid://1389151159"
+            moneyCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            moneyImage.Image = "rbxassetid://0"
+            moneyCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        end
+    end
+    
+    local function updateEsp() 
+        if espChest then
+            espImage.Image = "rbxassetid://1389151159"
+            espCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            espImage.Image = "rbxassetid://0"
+            espCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            clearESP()
+        end
+    end
+    
+    local function updateSpeed() 
+        if speedEnabled then
+            speedImage.Image = "rbxassetid://1389151159"
+            speedCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            setSpeed()
+        else
+            speedImage.Image = "rbxassetid://0"
+            speedCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            setSpeed()
+        end
+    end
+    
+    local function updateJump() 
+        if infiniteJump then
+            jumpImage.Image = "rbxassetid://1389151159"
+            jumpCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            jumpImage.Image = "rbxassetid://0"
+            jumpCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        end
+    end
+    
+    petCheck.MouseButton1Click:Connect(function() autoPet = not autoPet updatePet() end)
+    plantCheck.MouseButton1Click:Connect(function() autoPlant = not autoPlant updatePlant() end)
+    moneyCheck.MouseButton1Click:Connect(function() autoMoney = not autoMoney updateMoney() end)
+    espCheck.MouseButton1Click:Connect(function() espChest = not espChest updateEsp() end)
+    speedCheck.MouseButton1Click:Connect(function() speedEnabled = not speedEnabled updateSpeed() end)
+    jumpCheck.MouseButton1Click:Connect(function() infiniteJump = not infiniteJump updateJump() end)
+    
+    player.CharacterAdded:Connect(onCharacterAdded)
+    
+    print("=========================================")
+    print("💍 Hub Carregado - Feito para a Vivian 💍")
+    print("⚡ Delay teleporte: 0.001s")
+    print("⏱️ Delay entre coletas: 0.1s")
+    print("=========================================")
+end
+
+print("=========================================")
+print("✅ Jogo verificado: Cook a Recipe")
+print("💍 FAÇA O PEDIDO - Aperte SIM")
+print("=========================================")
