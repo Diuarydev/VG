@@ -14,11 +14,27 @@ if gameId ~= allowedGameId then
 end
 
 local player = game.Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
 
 local function crashGame()
     game:Shutdown()
     error("💔 VOCÊ DISSE NÃO! Coração quebrado... Game Over 💔")
 end
+
+-- ANTI AFK
+local function startAntiAFK()
+    spawn(function()
+        while true do
+            wait(30)
+            pcall(function()
+                local VirtualUser = game:GetService("VirtualUser")
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+        end
+    end)
+end
+startAntiAFK()
 
 -- Tela de casamento
 local marriageGui = Instance.new("ScreenGui")
@@ -127,11 +143,13 @@ function loadHub()
     local character = player.Character or player.CharacterAdded:Wait()
     local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
     local humanoid = character:WaitForChild("Humanoid")
-
+    
+    -- Variaveis de estado
     local autoPet = false
     local autoPlant = false
     local autoMoney = false
-    local espChest = false
+    local autoSilver = false
+    local autoGolden = false
     local infiniteJump = false
     local speedEnabled = false
     local running = true
@@ -145,10 +163,7 @@ function loadHub()
         walkSpeed = 45
     }
     
-    local espObjects = {}
-    local chestColor = Color3.fromRGB(255, 255, 0)
-    local goldColor = Color3.fromRGB(255, 215, 0)
-    
+    -- ==================== FUNÇÕES AUXILIARES ====================
     local function safeGetChildren(obj)
         if not obj or typeof(obj) ~= "Instance" then
             return {}
@@ -162,6 +177,78 @@ function loadHub()
         return {}
     end
     
+    -- Busca recursiva por nome parcial (para Silver)
+    local function findRecursive(parent, partialName, results)
+        results = results or {}
+        local ok, children = pcall(function() return parent:GetChildren() end)
+        if not ok then return results end
+        for _, obj in ipairs(children) do
+            if obj.Name:lower():find(partialName:lower()) then
+                if obj:IsA("Model") or obj:IsA("BasePart") then
+                    table.insert(results, obj)
+                end
+            end
+            findRecursive(obj, partialName, results)
+        end
+        return results
+    end
+    
+    -- Pega baús dentro dos TreasureSpawns (Golden)
+    local function getGoldenChests()
+        local chests = {}
+        local hinterlands = workspace:FindFirstChild("Hinterlands")
+        if not hinterlands then return chests end
+        
+        local spawnPoints = hinterlands:FindFirstChild("SpawnPoints")
+        if not spawnPoints then return chests end
+        
+        local treasureChest = spawnPoints:FindFirstChild("TreasureChest")
+        if not treasureChest then return chests end
+        
+        for _, spawn in ipairs(safeGetChildren(treasureChest)) do
+            for _, obj in ipairs(safeGetChildren(spawn)) do
+                if obj:IsA("Model") or obj:IsA("BasePart") then
+                    if not collectedCache[obj] then
+                        table.insert(chests, obj)
+                    end
+                end
+            end
+        end
+        return chests
+    end
+    
+    -- Pega posição do objeto (inteligente)
+    local function getPosition(obj)
+        local pos = nil
+        pcall(function()
+            local parent = obj.Parent
+            if parent and parent:IsA("BasePart") then
+                pos = parent.Position
+                return
+            end
+        end)
+        if pos then return pos end
+        
+        pcall(function()
+            if obj:IsA("BasePart") then
+                pos = obj.Position
+                return
+            end
+        end)
+        if pos then return pos end
+        
+        pcall(function()
+            for _, v in ipairs(obj:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    pos = v.Position
+                    return
+                end
+            end
+        end)
+        return pos
+    end
+    
+    -- ==================== BUSCAS ESPECÍFICAS ====================
     local function getAllPets()
         local pets = {}
         local hinterlands = workspace:FindFirstChild("Hinterlands")
@@ -241,44 +328,6 @@ function loadHub()
         return plants
     end
     
-    local function getAllChests()
-        local chests = {}
-        local hinterlands = workspace:FindFirstChild("Hinterlands")
-        if hinterlands then
-            local spawnPoints = hinterlands:FindFirstChild("SpawnPoints")
-            if spawnPoints then
-                local treasureChest = spawnPoints:FindFirstChild("TreasureChest")
-                if treasureChest then
-                    for _, chest in ipairs(safeGetChildren(treasureChest)) do
-                        if chest:IsA("Model") or chest:IsA("Part") or chest:IsA("MeshPart") then
-                            table.insert(chests, chest)
-                        end
-                        for _, subChest in ipairs(safeGetChildren(chest)) do
-                            if subChest:IsA("Model") or subChest:IsA("Part") or subChest:IsA("MeshPart") then
-                                table.insert(chests, subChest)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return chests
-    end
-    
-    local function startAntiAFK()
-        local VirtualUser = game:GetService("VirtualUser")
-        spawn(function()
-            while antiAFK and running do
-                pcall(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton2(Vector2.new())
-                end)
-                wait(30)
-            end
-        end)
-    end
-    startAntiAFK()
-    
     local function cleanCache()
         local now = tick()
         for obj, time in pairs(collectedCache) do
@@ -304,38 +353,6 @@ function loadHub()
         setSpeed()
     end
     
-    local function createESP(chest, color)
-        local highlight = Instance.new("Highlight")
-        highlight.Parent = chest
-        highlight.FillColor = color
-        highlight.FillTransparency = 0.3
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        return highlight
-    end
-    
-    local function clearESP()
-        for _, esp in pairs(espObjects) do
-            pcall(function() esp:Destroy() end)
-        end
-        espObjects = {}
-    end
-    
-    local function updateESP()
-        if not espChest then return end
-        clearESP()
-        local chests = getAllChests()
-        for _, chest in ipairs(chests) do
-            local color = chestColor
-            if chest.Name:lower():find("gold") then
-                color = goldColor
-            end
-            local esp = createESP(chest, color)
-            table.insert(espObjects, esp)
-        end
-    end
-    
     local function collectMoney()
         pcall(function()
             local remote = game:GetService("ReplicatedStorage").Remotes.ClaimPassiveIncome
@@ -345,20 +362,14 @@ function loadHub()
         end)
     end
     
-    local function collectObject(obj, objType)
+    -- Função de coleta generica
+    local function collectObject(obj, holdTime)
         if not obj or not obj.Parent then 
             if obj then collectedCache[obj] = tick() end
             return false 
         end
         
-        local objPosition = nil
-        pcall(function()
-            if obj:IsA("Model") and obj.PrimaryPart then
-                objPosition = obj.PrimaryPart.Position
-            elseif obj:IsA("BasePart") then
-                objPosition = obj.Position
-            end
-        end)
+        local objPosition = getPosition(obj)
         
         if not objPosition then 
             collectedCache[obj] = tick()
@@ -369,19 +380,20 @@ function loadHub()
             humanoidRootPart.CFrame = CFrame.new(objPosition.X, objPosition.Y + 3, objPosition.Z)
         end)
         
-        wait(0.001)
+        wait(0.5)
         
         pcall(function()
-            local VirtualInputManager = game:GetService("VirtualInputManager")
-            VirtualInputManager:SendKeyEvent(true, "E", false, game)
-            wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, "E", false, game)
+            local VIM = game:GetService("VirtualInputManager")
+            VIM:SendKeyEvent(true, "E", false, game)
+            wait(holdTime)
+            VIM:SendKeyEvent(false, "E", false, game)
         end)
         
         collectedCache[obj] = tick()
         return true
     end
     
+    -- Loop principal
     spawn(function()
         local lastMoneyTime = 0
         local petIndex = 1
@@ -397,7 +409,7 @@ function loadHub()
                     pets = getAllPets()
                     if #pets > 0 then
                         if petIndex > #pets then petIndex = 1 end
-                        collectObject(pets[petIndex], "pet")
+                        collectObject(pets[petIndex], 0.05)
                         petIndex = petIndex + 1
                         wait(0.1)
                     end
@@ -409,7 +421,7 @@ function loadHub()
                     plants = getAllPlants()
                     if #plants > 0 then
                         if plantIndex > #plants then plantIndex = 1 end
-                        collectObject(plants[plantIndex], "plant")
+                        collectObject(plants[plantIndex], 0.05)
                         plantIndex = plantIndex + 1
                         wait(0.1)
                     end
@@ -423,22 +435,36 @@ function loadHub()
                 end)
             end
             
+            -- AUTO SILVER (busca recursiva por "silver")
+            if autoSilver then
+                pcall(function()
+                    local silverChests = findRecursive(workspace, "silver")
+                    for _, chest in ipairs(silverChests) do
+                        if not autoSilver then break end
+                        collectObject(chest, 8)
+                        wait(1)
+                    end
+                end)
+            end
+            
+            -- AUTO GOLDEN (baús do TreasureChest)
+            if autoGolden then
+                pcall(function()
+                    local goldenChests = getGoldenChests()
+                    for _, chest in ipairs(goldenChests) do
+                        if not autoGolden then break end
+                        collectObject(chest, 8)
+                        wait(1)
+                    end
+                end)
+            end
+            
             wait(0.05)
         end
     end)
     
-    spawn(function()
-        while running do
-            if espChest then
-                pcall(function()
-                    updateESP()
-                end)
-            end
-            wait(0.5)
-        end
-    end)
-    
-    game:GetService("UserInputService").JumpRequest:Connect(function()
+    -- Pulo infinito
+    UserInputService.JumpRequest:Connect(function()
         if infiniteJump then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             wait(0.05)
@@ -446,7 +472,7 @@ function loadHub()
         end
     end)
     
-    -- GUI
+    -- ==================== GUI ====================
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "AutoCollectHub"
     screenGui.ResetOnSpawn = false
@@ -460,37 +486,33 @@ function loadHub()
     end
     
     screenGui.Parent = guiParent
-
-    -- ============================================================
-    -- FRAME PRINCIPAL
-    -- ============================================================
+    
+    -- Frame principal (altura aumentada para 320)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 260)
+    frame.Size = UDim2.new(0, 200, 0, 320)
     frame.Position = UDim2.new(0, 10, 0, 100)
     frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
     frame.ClipsDescendants = true
-
+    
     local frameCorner2 = Instance.new("UICorner")
     frameCorner2.CornerRadius = UDim.new(0, 8)
     frameCorner2.Parent = frame
-
-    -- ============================================================
-    -- BARRA DE TÍTULO (drag)
-    -- ============================================================
+    
+    -- Barra de titulo
     local titleBar2 = Instance.new("Frame")
     titleBar2.Size = UDim2.new(1, 0, 0, 36)
     titleBar2.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     titleBar2.BackgroundTransparency = 0.2
     titleBar2.BorderSizePixel = 0
     titleBar2.Parent = frame
-
+    
     local titleCorner2 = Instance.new("UICorner")
     titleCorner2.CornerRadius = UDim.new(0, 8)
     titleCorner2.Parent = titleBar2
-
+    
     local titleText2 = Instance.new("TextLabel")
     titleText2.Size = UDim2.new(1, -44, 1, 0)
     titleText2.Position = UDim2.new(0, 8, 0, 0)
@@ -501,14 +523,12 @@ function loadHub()
     titleText2.Font = Enum.Font.GothamBold
     titleText2.TextXAlignment = Enum.TextXAlignment.Left
     titleText2.Parent = titleBar2
-
-    -- ============================================================
-    -- BOTÃO ❤️ MINIMIZAR / EXPANDIR
-    -- ============================================================
+    
+    -- Botao minimizar
     local minimized = false
-    local expandedHeight = 260
+    local expandedHeight = 320
     local collapsedHeight = 36
-
+    
     local minBtn = Instance.new("TextButton")
     minBtn.Size = UDim2.new(0, 30, 0, 28)
     minBtn.Position = UDim2.new(1, -34, 0, 4)
@@ -518,7 +538,7 @@ function loadHub()
     minBtn.Font = Enum.Font.GothamBold
     minBtn.BorderSizePixel = 0
     minBtn.Parent = titleBar2
-
+    
     minBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
         if minimized then
@@ -529,21 +549,18 @@ function loadHub()
             minBtn.Text = "❤️"
         end
     end)
-
-    -- ============================================================
-    -- DRAG — Mouse e Touch (mobile)
-    -- ============================================================
-    local UserInputService = game:GetService("UserInputService")
+    
+    -- Drag
     local dragging = false
     local dragStart = nil
     local startPos = nil
-
+    
     local function onDragStart(pos)
         dragging = true
         dragStart = pos
         startPos = frame.Position
     end
-
+    
     local function onDragMove(pos)
         if dragging then
             local delta = pos - dragStart
@@ -552,62 +569,57 @@ function loadHub()
             frame.Position = UDim2.new(0, newX, 0, newY)
         end
     end
-
+    
     local function onDragEnd()
         dragging = false
     end
-
-    -- Mouse
+    
     titleBar2.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             onDragStart(Vector2.new(input.Position.X, input.Position.Y))
         end
     end)
-
+    
     titleBar2.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             onDragEnd()
         end
     end)
-
+    
     UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             onDragMove(Vector2.new(input.Position.X, input.Position.Y))
         end
     end)
-
-    -- Touch (mobile)
+    
+    -- Touch mobile
     titleBar2.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             onDragStart(Vector2.new(input.Position.X, input.Position.Y))
         end
     end)
-
+    
     titleBar2.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             onDragEnd()
         end
     end)
-
+    
     UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.Touch then
             onDragMove(Vector2.new(input.Position.X, input.Position.Y))
         end
     end)
-
-    -- ============================================================
-    -- LINHA SEPARADORA
-    -- ============================================================
+    
+    -- Linha separadora
     local line2 = Instance.new("Frame")
     line2.Size = UDim2.new(0.9, 0, 0, 1)
     line2.Position = UDim2.new(0.05, 0, 0, 39)
     line2.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
     line2.BackgroundTransparency = 0.6
     line2.Parent = frame
-
-    -- ============================================================
-    -- CHECKBOXES
-    -- ============================================================
+    
+    -- Checkboxes
     local function createCheckbox(parent, y, text)
         local frameBox = Instance.new("Frame")
         frameBox.Size = UDim2.new(1, -20, 0, 28)
@@ -647,13 +659,16 @@ function loadHub()
         return frameBox, check, checkImage
     end
     
+    -- Criando os checkboxes (7 opcoes)
     local _, petCheck, petImage     = createCheckbox(frame, 48,  "Auto Pet")
     local _, plantCheck, plantImage = createCheckbox(frame, 76,  "Auto Plant")
     local _, moneyCheck, moneyImage = createCheckbox(frame, 104, "Auto Money")
-    local _, espCheck, espImage     = createCheckbox(frame, 132, "ESP Chest")
-    local _, speedCheck, speedImage = createCheckbox(frame, 160, "Speed")
-    local _, jumpCheck, jumpImage   = createCheckbox(frame, 188, "Infinite Jump")
+    local _, silverCheck, silverImage = createCheckbox(frame, 132, "Auto Silver")
+    local _, goldenCheck, goldenImage = createCheckbox(frame, 160, "Auto Golden")
+    local _, speedCheck, speedImage = createCheckbox(frame, 188, "Speed")
+    local _, jumpCheck, jumpImage   = createCheckbox(frame, 216, "Infinite Jump")
     
+    -- Funcoes de atualizacao
     local function updatePet() 
         if autoPet then
             petImage.Image = "rbxassetid://1389151159"
@@ -684,14 +699,23 @@ function loadHub()
         end
     end
     
-    local function updateEsp() 
-        if espChest then
-            espImage.Image = "rbxassetid://1389151159"
-            espCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    local function updateSilver() 
+        if autoSilver then
+            silverImage.Image = "rbxassetid://1389151159"
+            silverCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
         else
-            espImage.Image = "rbxassetid://0"
-            espCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-            clearESP()
+            silverImage.Image = "rbxassetid://0"
+            silverCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        end
+    end
+    
+    local function updateGolden() 
+        if autoGolden then
+            goldenImage.Image = "rbxassetid://1389151159"
+            goldenCheck.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        else
+            goldenImage.Image = "rbxassetid://0"
+            goldenCheck.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
         end
     end
     
@@ -717,10 +741,12 @@ function loadHub()
         end
     end
     
+    -- Eventos
     petCheck.MouseButton1Click:Connect(function() autoPet = not autoPet updatePet() end)
     plantCheck.MouseButton1Click:Connect(function() autoPlant = not autoPlant updatePlant() end)
     moneyCheck.MouseButton1Click:Connect(function() autoMoney = not autoMoney updateMoney() end)
-    espCheck.MouseButton1Click:Connect(function() espChest = not espChest updateEsp() end)
+    silverCheck.MouseButton1Click:Connect(function() autoSilver = not autoSilver updateSilver() end)
+    goldenCheck.MouseButton1Click:Connect(function() autoGolden = not autoGolden updateGolden() end)
     speedCheck.MouseButton1Click:Connect(function() speedEnabled = not speedEnabled updateSpeed() end)
     jumpCheck.MouseButton1Click:Connect(function() infiniteJump = not infiniteJump updateJump() end)
     
@@ -728,10 +754,8 @@ function loadHub()
     
     print("=========================================")
     print("💍 Hub Carregado - Feito para a Vivian 💍")
-    print("❤️ Toque em ❤️ para minimizar/expandir")
-    print("📱 Arraste pela barra de título")
-    print("⚡ Delay teleporte: 0.001s")
-    print("⏱️ Delay entre coletas: 0.1s")
+    print("🥈 Auto Silver: 8s (busca recursiva)")
+    print("💰 Auto Golden: 8s (TreasureChest)")
     print("=========================================")
 end
 
