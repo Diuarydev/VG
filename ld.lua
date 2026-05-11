@@ -345,7 +345,6 @@ function loadHub()
         end)
     end
     
-    -- Função de coleta com delays suaves (sem lag)
     local function collectObject(obj, objType)
         if not obj or not obj.Parent then 
             if obj then collectedCache[obj] = tick() end
@@ -366,14 +365,12 @@ function loadHub()
             return false 
         end
         
-        -- Teleporta com delay mínimo
         pcall(function()
             humanoidRootPart.CFrame = CFrame.new(objPosition.X, objPosition.Y + 3, objPosition.Z)
         end)
         
-        wait(0.001) -- Delay do teleporte
+        wait(0.001)
         
-        -- Coleta
         pcall(function()
             local VirtualInputManager = game:GetService("VirtualInputManager")
             VirtualInputManager:SendKeyEvent(true, "E", false, game)
@@ -385,7 +382,6 @@ function loadHub()
         return true
     end
     
-    -- Loop principal com delay de 0.1 entre coletas
     spawn(function()
         local lastMoneyTime = 0
         local petIndex = 1
@@ -396,7 +392,6 @@ function loadHub()
         while running do
             cleanCache()
             
-            -- Coleta Pets (delay de 0.1 entre cada)
             if autoPet then
                 pcall(function()
                     pets = getAllPets()
@@ -404,12 +399,11 @@ function loadHub()
                         if petIndex > #pets then petIndex = 1 end
                         collectObject(pets[petIndex], "pet")
                         petIndex = petIndex + 1
-                        wait(0.1) -- Delay entre pets
+                        wait(0.1)
                     end
                 end)
             end
             
-            -- Coleta Plantas (delay de 0.1 entre cada)
             if autoPlant then
                 pcall(function()
                     plants = getAllPlants()
@@ -417,12 +411,11 @@ function loadHub()
                         if plantIndex > #plants then plantIndex = 1 end
                         collectObject(plants[plantIndex], "plant")
                         plantIndex = plantIndex + 1
-                        wait(0.1) -- Delay entre plantas
+                        wait(0.1)
                     end
                 end)
             end
             
-            -- Coleta Dinheiro
             if autoMoney and tick() - lastMoneyTime > config.moneyDelay then
                 pcall(function()
                     collectMoney()
@@ -434,7 +427,6 @@ function loadHub()
         end
     end)
     
-    -- Loop do ESP
     spawn(function()
         while running do
             if espChest then
@@ -446,7 +438,6 @@ function loadHub()
         end
     end)
     
-    -- Infinite Jump
     game:GetService("UserInputService").JumpRequest:Connect(function()
         if infiniteJump then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -469,70 +460,154 @@ function loadHub()
     end
     
     screenGui.Parent = guiParent
-    
+
+    -- ============================================================
+    -- FRAME PRINCIPAL
+    -- ============================================================
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 220)
+    frame.Size = UDim2.new(0, 200, 0, 260)
     frame.Position = UDim2.new(0, 10, 0, 100)
     frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
     frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
-    
+    frame.ClipsDescendants = true
+
     local frameCorner2 = Instance.new("UICorner")
     frameCorner2.CornerRadius = UDim.new(0, 8)
     frameCorner2.Parent = frame
-    
+
+    -- ============================================================
+    -- BARRA DE TÍTULO (drag)
+    -- ============================================================
     local titleBar2 = Instance.new("Frame")
-    titleBar2.Size = UDim2.new(1, 0, 0, 30)
+    titleBar2.Size = UDim2.new(1, 0, 0, 36)
     titleBar2.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     titleBar2.BackgroundTransparency = 0.2
     titleBar2.BorderSizePixel = 0
     titleBar2.Parent = frame
-    
+
     local titleCorner2 = Instance.new("UICorner")
     titleCorner2.CornerRadius = UDim.new(0, 8)
     titleCorner2.Parent = titleBar2
-    
+
     local titleText2 = Instance.new("TextLabel")
-    titleText2.Size = UDim2.new(1, 0, 1, 0)
+    titleText2.Size = UDim2.new(1, -44, 1, 0)
+    titleText2.Position = UDim2.new(0, 8, 0, 0)
     titleText2.BackgroundTransparency = 1
     titleText2.Text = "Feito para a Vivian 💍"
     titleText2.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleText2.TextSize = 13
+    titleText2.TextSize = 12
     titleText2.Font = Enum.Font.GothamBold
+    titleText2.TextXAlignment = Enum.TextXAlignment.Left
     titleText2.Parent = titleBar2
-    
-    local dragStart, startPos, dragging = nil, nil, false
-    
+
+    -- ============================================================
+    -- BOTÃO ❤️ MINIMIZAR / EXPANDIR
+    -- ============================================================
+    local minimized = false
+    local expandedHeight = 260
+    local collapsedHeight = 36
+
+    local minBtn = Instance.new("TextButton")
+    minBtn.Size = UDim2.new(0, 30, 0, 28)
+    minBtn.Position = UDim2.new(1, -34, 0, 4)
+    minBtn.BackgroundTransparency = 1
+    minBtn.Text = "❤️"
+    minBtn.TextSize = 18
+    minBtn.Font = Enum.Font.GothamBold
+    minBtn.BorderSizePixel = 0
+    minBtn.Parent = titleBar2
+
+    minBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            frame.Size = UDim2.new(0, 200, 0, collapsedHeight)
+            minBtn.Text = "🤍"
+        else
+            frame.Size = UDim2.new(0, 200, 0, expandedHeight)
+            minBtn.Text = "❤️"
+        end
+    end)
+
+    -- ============================================================
+    -- DRAG — Mouse e Touch (mobile)
+    -- ============================================================
+    local UserInputService = game:GetService("UserInputService")
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+
+    local function onDragStart(pos)
+        dragging = true
+        dragStart = pos
+        startPos = frame.Position
+    end
+
+    local function onDragMove(pos)
+        if dragging then
+            local delta = pos - dragStart
+            local newX = startPos.X.Offset + delta.X
+            local newY = startPos.Y.Offset + delta.Y
+            frame.Position = UDim2.new(0, newX, 0, newY)
+        end
+    end
+
+    local function onDragEnd()
+        dragging = false
+    end
+
+    -- Mouse
     titleBar2.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
+            onDragStart(Vector2.new(input.Position.X, input.Position.Y))
         end
     end)
-    
+
     titleBar2.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
+            onDragEnd()
         end
     end)
-    
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
+
+    UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            onDragMove(Vector2.new(input.Position.X, input.Position.Y))
         end
     end)
-    
+
+    -- Touch (mobile)
+    titleBar2.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            onDragStart(Vector2.new(input.Position.X, input.Position.Y))
+        end
+    end)
+
+    titleBar2.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            onDragEnd()
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.Touch then
+            onDragMove(Vector2.new(input.Position.X, input.Position.Y))
+        end
+    end)
+
+    -- ============================================================
+    -- LINHA SEPARADORA
+    -- ============================================================
     local line2 = Instance.new("Frame")
     line2.Size = UDim2.new(0.9, 0, 0, 1)
-    line2.Position = UDim2.new(0.05, 0, 0, 34)
+    line2.Position = UDim2.new(0.05, 0, 0, 39)
     line2.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
     line2.BackgroundTransparency = 0.6
     line2.Parent = frame
-    
-    -- Criar checkboxes
+
+    -- ============================================================
+    -- CHECKBOXES
+    -- ============================================================
     local function createCheckbox(parent, y, text)
         local frameBox = Instance.new("Frame")
         frameBox.Size = UDim2.new(1, -20, 0, 28)
@@ -541,7 +616,7 @@ function loadHub()
         frameBox.Parent = parent
         
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0, 100, 1, 0)
+        label.Size = UDim2.new(0, 140, 1, 0)
         label.BackgroundTransparency = 1
         label.Text = text
         label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -572,14 +647,13 @@ function loadHub()
         return frameBox, check, checkImage
     end
     
-    local _, petCheck, petImage = createCheckbox(frame, 42, "Auto Pet")
-    local _, plantCheck, plantImage = createCheckbox(frame, 70, "Auto Plant")
-    local _, moneyCheck, moneyImage = createCheckbox(frame, 98, "Auto Money")
-    local _, espCheck, espImage = createCheckbox(frame, 126, "ESP Chest")
-    local _, speedCheck, speedImage = createCheckbox(frame, 154, "Speed")
-    local _, jumpCheck, jumpImage = createCheckbox(frame, 182, "Infinite Jump")
+    local _, petCheck, petImage     = createCheckbox(frame, 48,  "Auto Pet")
+    local _, plantCheck, plantImage = createCheckbox(frame, 76,  "Auto Plant")
+    local _, moneyCheck, moneyImage = createCheckbox(frame, 104, "Auto Money")
+    local _, espCheck, espImage     = createCheckbox(frame, 132, "ESP Chest")
+    local _, speedCheck, speedImage = createCheckbox(frame, 160, "Speed")
+    local _, jumpCheck, jumpImage   = createCheckbox(frame, 188, "Infinite Jump")
     
-    -- Funções de atualização
     local function updatePet() 
         if autoPet then
             petImage.Image = "rbxassetid://1389151159"
@@ -654,6 +728,8 @@ function loadHub()
     
     print("=========================================")
     print("💍 Hub Carregado - Feito para a Vivian 💍")
+    print("❤️ Toque em ❤️ para minimizar/expandir")
+    print("📱 Arraste pela barra de título")
     print("⚡ Delay teleporte: 0.001s")
     print("⏱️ Delay entre coletas: 0.1s")
     print("=========================================")
